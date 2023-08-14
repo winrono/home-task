@@ -1,39 +1,69 @@
-import { PortchainApiClient } from "./api-client";
+import { ApiClient } from "./api-client";
+import { ScheduleArraySchema, VesselArraySchema } from "./schemas";
 import { PortCallSummary } from "./types";
 
 export class PortchainService {
-    private api: PortchainApiClient;
-    private summaries: PortCallSummary[] = [];
+    private apiClient: ApiClient;
     private portFrequencies: { portId: string, portName: string, frequency: number }[] = [];
-    private portToDurationsAndNames: { [portId: string]: { durations: number[]; portName: string } } = {};
+    private portToDurationsAndName: { [portId: string]: { durations: number[]; portName: string } } = {};
 
-    private constructor() {
-        this.api = new PortchainApiClient();
+    private constructor(apiClient: ApiClient) {
+        this.apiClient = apiClient;
     }
 
-    public static async create(): Promise<PortchainService> {
-        const service = new PortchainService();
+    static async create(apiClient: ApiClient): Promise<PortchainService> {
+        const service = new PortchainService(apiClient);
         await service.prepareCalculationData();
         return service;
     }
 
+    getTopPorts(count: number) {
+        return this.portFrequencies.slice(0, count);
+    }
+
+    getBottomPorts(count: number) {
+        return this.portFrequencies.slice(-count).reverse();
+    }
+
+    getPortCallDurationPercentiles(percentile: number) {
+        const portPercentiles: { portId: string, portName: string, percentile: number }[] = [];
+
+        for (const portId in this.portToDurationsAndName) {
+            const { durations, portName } = this.portToDurationsAndName[portId];
+            const portPercentile = this.calculatePercentile(durations, percentile);
+
+            portPercentiles.push({
+                portId,
+                portName,
+                percentile: portPercentile
+            });
+        }
+
+        return portPercentiles;
+    }
+
     private async prepareCalculationData() {
-        const vessels = await this.api.getVessels();
-        const vesselIds = vessels.map(v => v.imo);
+        const vessels = await this.apiClient.getVessels();
+
+        const validatedVessels = VesselArraySchema.parse(vessels);
+
+        const vesselIds = validatedVessels.map(v => v.imo);
 
         const schedulePromises = vesselIds.map(vesselId => {
-            return this.api.getVesselSchedule(vesselId);
+            return this.apiClient.getVesselSchedule(vesselId);
         });
         const vesselSchedules = await Promise.all(schedulePromises);
-        const summaries = vesselSchedules.map(schedule => {
+
+        const validatedVesselSchedules = ScheduleArraySchema.parse(vesselSchedules);
+
+        const summaries = validatedVesselSchedules.map(schedule => {
             return schedule.portCalls
                 .filter(p => !p.isOmitted)
                 .map(({ arrival, departure, port }) => ({ arrival, departure, port }))
         }).flat();
 
-        this.summaries = summaries;
-        this.portFrequencies = this.calculatePortFrequencies(this.summaries);
-        this.portToDurationsAndNames = this.calculatePortDurationsAndNames(this.summaries);
+        this.portFrequencies = this.calculatePortFrequencies(summaries);
+        this.portToDurationsAndName = this.calculatePortDurationsAndNames(summaries);
     }
 
     private calculatePortFrequencies(summaries: PortCallSummary[]) {
@@ -88,30 +118,5 @@ export class PortchainService {
     private calculatePercentile(values: number[], percentile: number): number {
         const index = Math.ceil(values.length * (percentile / 100)) - 1;
         return values[index];
-    }
-
-    async getTopPorts(count: number) {
-        return this.portFrequencies.slice(0, count);
-    }
-
-    async getBottomPorts(count: number) {
-        return this.portFrequencies.slice(-count).reverse();
-    }
-
-    async getPortCallDurationPercentiles(percentile: number) {
-        const portPercentiles: { portId: string, portName: string, percentile: number }[] = [];
-
-        for (const portId in this.portToDurationsAndNames) {
-            const { durations, portName } = this.portToDurationsAndNames[portId];
-            const portPercentile = this.calculatePercentile(durations, percentile);
-
-            portPercentiles.push({
-                portId,
-                portName,
-                percentile: portPercentile
-            });
-        }
-
-        return portPercentiles;
     }
 }

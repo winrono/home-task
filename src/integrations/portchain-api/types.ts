@@ -1,38 +1,8 @@
-type LogEntry = {
-    updatedField: string;
-    arrival: string;
-    departure: string;
-    isOmitted: boolean;
-    createdDate: string;
-};
+import { z } from 'zod';
+import * as schemas from './schemas';
 
-type Port = {
-    id: string;
-    name: string;
-};
-
-export type Vessel = {
-    imo: number;
-    name: string;
-}
-
-export type PortCall = {
-    arrival: string;
-    departure: string;
-    createdDate: string;
-    isOmitted: boolean;
-    service: string;
-    port: Port;
-    logEntries: LogEntry[];
-};
-
-export type Schedule = {
-    vessel: Vessel,
-    portCalls: PortCall[];
-};
-
-export type PortCallSummary = {
-    arrival: string;
-    departure: string;
-    port: Port;
-}
+export type Port = z.infer<typeof schemas.PortSchema>;
+export type Vessel = z.infer<typeof schemas.VesselSchema>;
+export type PortCall = z.infer<typeof schemas.PortCallSchema>;
+export type Schedule = z.infer<typeof schemas.ScheduleSchema>;
+export type PortCallSummary = z.infer<typeof schemas.PortCallSummarySchema>;

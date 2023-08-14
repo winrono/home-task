@@ -1,25 +1,23 @@
-import { PortchainService } from 'integrations/portchain-api';
+import { PortchainApiClient, PortchainService } from 'integrations/portchain-api';
 
 async function main() {
-    const service = await PortchainService.create();
+    let service: PortchainService;
 
-    const [
-        topPorts,
-        bottomPorts,
-        percentile5th,
-        percentile20th,
-        percentile50th,
-        percentile75th,
-        percentile90th,
-    ] = await Promise.all([
-        service.getTopPorts(5),
-        service.getBottomPorts(5),
-        service.getPortCallDurationPercentiles(5),
-        service.getPortCallDurationPercentiles(20),
-        service.getPortCallDurationPercentiles(50),
-        service.getPortCallDurationPercentiles(75),
-        service.getPortCallDurationPercentiles(90),
-    ]);
+    try {
+        service = await PortchainService.create(new PortchainApiClient());
+    } catch (e) {
+        console.log(`Initialization error occured`);
+        console.log(`Actual error is ${e}`);
+        process.exit(1);
+    }
+
+    const topPorts = service.getTopPorts(5);
+    const bottomPorts = service.getBottomPorts(5);
+    const percentile5th = service.getPortCallDurationPercentiles(5);
+    const percentile20th = service.getPortCallDurationPercentiles(20);
+    const percentile50th = service.getPortCallDurationPercentiles(50);
+    const percentile75th = service.getPortCallDurationPercentiles(75);
+    const percentile90th = service.getPortCallDurationPercentiles(90);
 
     console.log('Top 5 ports:');
     console.log(topPorts);

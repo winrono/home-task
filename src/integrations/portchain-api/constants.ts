@@ -1,0 +1,1 @@
+export const PORTCHAIN_BASE_URL = 'https://import-coding-challenge-api.portchain.com/api/v2';
